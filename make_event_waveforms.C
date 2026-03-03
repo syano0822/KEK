@@ -13,19 +13,19 @@
  *   Directories are numbered sequentially for saved events only
  *   (event_000000 = 1st kept event, event_000001 = 2nd kept event, …).
  *   /event_000000/
- *     DUT sensor/   strip1..strip7  ← EUDAQ=2 C2..C8 (pedestal-subtracted)
- *     MCP-PMT/      wf              ← EUDAQ=2 C1
- *     Tracking_1/   strip1..strip8  (merged: EUDAQ=0 C1..C4 + EUDAQ=1 C1..C4)
- *     Tracking_2/   strip1..strip8  ← EUDAQ=5
- *     Tracking_3/   strip1..strip8  ← EUDAQ=4
- *     Tracking_4/   strip1..strip8  ← EUDAQ=3
+ *     DUT sensor/   strip1..strip7  ← EUDAQ=5 C1..C7 (pedestal-subtracted)
+ *     MCP-PMT/      wf              ← EUDAQ=5 C8
+ *     Tracking_1/   strip1..strip8  ← EUDAQ=6 C1..C8
+ *     Tracking_2/   strip1..strip8  ← EUDAQ=3
+ *     Tracking_4/   strip1..strip8  ← EUDAQ=4
+ *     Tracking_5/   strip1..strip8  ← EUDAQ=2
  *   /event_000001/…
  *
  * Statistics counting rule for S (set of detector groups crossing global threshold):
- *   DUT sensor  (key=0)  : any of DUT strip1..strip7 (EUDAQ=2 C2..C8) below thr_mV.
- *   Tracking_1  (key=10) : any of merged EUDAQ=0/1 channels below thr_mV.
- *   Tracking_2..4 (keys 3,4,5) : any channel in EUDAQ=3,4,5 below thr_mV.
- *   MCP-PMT (EUDAQ=2 C1) : excluded from S; tracked separately as count_MCP.
+ *   DUT sensor  (key=0)  : any of DUT strip1..strip7 (EUDAQ=5 C1..C7) below thr_mV.
+ *   Tracking_1  (key=10) : any of EUDAQ=6 channels below thr_mV.
+ *   Tracking_2,4,5 (keys 3,4,2) : any channel in EUDAQ=3,4,2 below thr_mV.
+ *   MCP-PMT (EUDAQ=5 C8) : excluded from S; tracked separately as count_MCP.
  *
  * ── Usage ────────────────────────────────────────────────────────────────────
  *  Interpreted:
@@ -41,7 +41,7 @@
  *  tree_name     : TTree name                              (default "events")
  *  max_entries   : max TTree entries to read, -1 = all    (default -1)
  *  thr_mV        : global threshold [mV], negative pulse  (default -10.0)
- *  thr_mcp_mV    : special threshold for MCP-PMT (EUDAQ=2 C1) [mV](default -200.0)
+ *  thr_mcp_mV    : special threshold for MCP-PMT (EUDAQ=5 C8) [mV](default -200.0)
  *  ped_n         : samples used for pedestal estimate      (default 20)
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -71,21 +71,20 @@ const Int_t kMaxSamp = 10000;
 
 /// Channels to read per EUDAQ_ID.
 const std::map<Long64_t, int> kChannelsPerScope = {
-    {0, 4}, {1, 4},
-    {2, 8}, {3, 8}, {4, 8}, {5, 8},
+    {2, 8}, {3, 8}, {4, 8}, {5, 8}, {6, 8},
 };
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
 // ║  DUT SENSOR CHANNEL MAPPING                                                 ║
 // ║                                                                             ║
-// ║  DUT sensor comes from EUDAQ=2 only.  C1 of EUDAQ=2 is the MCP-PMT signal  ║
-// ║  and is written separately; C2..C8 are the seven DUT strip channels.        ║
+// ║  DUT sensor comes from EUDAQ=5.  C1..C7 are the seven DUT strip channels;  ║
+// ║  C8 of EUDAQ=5 is the MCP-PMT signal and is written separately.            ║
 // ║                                                                             ║
 // ║  Output DUT strip  →  source (EUDAQ_ID, channel):                          ║
-// ║    DUT strip1 ← EUDAQ=2 C2    DUT strip5 ← EUDAQ=2 C6                     ║
-// ║    DUT strip2 ← EUDAQ=2 C3    DUT strip6 ← EUDAQ=2 C7                     ║
-// ║    DUT strip3 ← EUDAQ=2 C4    DUT strip7 ← EUDAQ=2 C8                     ║
-// ║    DUT strip4 ← EUDAQ=2 C5                                                 ║
+// ║    DUT strip1 ← EUDAQ=5 C1    DUT strip5 ← EUDAQ=5 C5                     ║
+// ║    DUT strip2 ← EUDAQ=5 C2    DUT strip6 ← EUDAQ=5 C6                     ║
+// ║    DUT strip3 ← EUDAQ=5 C3    DUT strip7 ← EUDAQ=5 C7                     ║
+// ║    DUT strip4 ← EUDAQ=5 C4                                                 ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 struct DutSrc { Long64_t eid; int src_ch; };
@@ -93,40 +92,39 @@ struct DutSrc { Long64_t eid; int src_ch; };
 // Index 0 is unused; valid DUT strip numbers are 1..kDutNCh.
 const DutSrc kDutChannels[8] = {
     {-1, -1},   // [0] unused
-    { 2,  2},   // DUT strip1 ← EUDAQ=2 C2
-    { 2,  3},   // DUT strip2 ← EUDAQ=2 C3
-    { 2,  4},   // DUT strip3 ← EUDAQ=2 C4
-    { 2,  5},   // DUT strip4 ← EUDAQ=2 C5
-    { 2,  6},   // DUT strip5 ← EUDAQ=2 C6
-    { 2,  7},   // DUT strip6 ← EUDAQ=2 C7
-    { 2,  8},   // DUT strip7 ← EUDAQ=2 C8
+    { 5,  1},   // DUT strip1 ← EUDAQ=5 C1
+    { 5,  2},   // DUT strip2 ← EUDAQ=5 C2
+    { 5,  3},   // DUT strip3 ← EUDAQ=5 C3
+    { 5,  4},   // DUT strip4 ← EUDAQ=5 C4
+    { 5,  5},   // DUT strip5 ← EUDAQ=5 C5
+    { 5,  6},   // DUT strip6 ← EUDAQ=5 C6
+    { 5,  7},   // DUT strip7 ← EUDAQ=5 C7
 };
 const int kDutNCh = 7;   // DUT strip channels: 1..kDutNCh
 
 // ╔══════════════════════════════════════════════════════════════════════════════╗
 // ║  TRACKING_1 CHANNEL MAPPING                                                 ║
 // ║                                                                             ║
-// ║  Tracking_1 is the merged reference tracker: EUDAQ=0 and EUDAQ=1 (8 ch).  ║
-// ║  EUDAQ=1 C1 is now a regular tracking strip (MCP-PMT moved to EUDAQ=2 C1). ║
+// ║  Tracking_1 comes from EUDAQ=6 (8 channels).                               ║
 // ║                                                                             ║
 // ║  Output Tracking_1 strip  →  source (EUDAQ_ID, channel):                   ║
-// ║    strip1 ← EUDAQ=0 C1    strip5 ← EUDAQ=1 C1                             ║
-// ║    strip2 ← EUDAQ=0 C2    strip6 ← EUDAQ=1 C2                             ║
-// ║    strip3 ← EUDAQ=0 C3    strip7 ← EUDAQ=1 C3                             ║
-// ║    strip4 ← EUDAQ=0 C4    strip8 ← EUDAQ=1 C4                             ║
+// ║    strip1 ← EUDAQ=6 C1    strip5 ← EUDAQ=6 C5                             ║
+// ║    strip2 ← EUDAQ=6 C2    strip6 ← EUDAQ=6 C6                             ║
+// ║    strip3 ← EUDAQ=6 C3    strip7 ← EUDAQ=6 C7                             ║
+// ║    strip4 ← EUDAQ=6 C4    strip8 ← EUDAQ=6 C8                             ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
 // Index 0 is unused; valid Tracking_1 strip numbers are 1..kTrackNCh.
 const DutSrc kTrackChannels[9] = {
     {-1, -1},   // [0] unused
-    { 0,  1},   // Tracking strip1 ← EUDAQ=0 C1
-    { 0,  2},   // Tracking strip2 ← EUDAQ=0 C2
-    { 0,  3},   // Tracking strip3 ← EUDAQ=0 C3
-    { 0,  4},   // Tracking strip4 ← EUDAQ=0 C4
-    { 1,  1},   // Tracking strip5 ← EUDAQ=1 C1
-    { 1,  2},   // Tracking strip6 ← EUDAQ=1 C2
-    { 1,  3},   // Tracking strip7 ← EUDAQ=1 C3
-    { 1,  4},   // Tracking strip8 ← EUDAQ=1 C4
+    { 6,  1},   // Tracking strip1 ← EUDAQ=6 C1
+    { 6,  2},   // Tracking strip2 ← EUDAQ=6 C2
+    { 6,  3},   // Tracking strip3 ← EUDAQ=6 C3
+    { 6,  4},   // Tracking strip4 ← EUDAQ=6 C4
+    { 6,  5},   // Tracking strip5 ← EUDAQ=6 C5
+    { 6,  6},   // Tracking strip6 ← EUDAQ=6 C6
+    { 6,  7},   // Tracking strip7 ← EUDAQ=6 C7
+    { 6,  8},   // Tracking strip8 ← EUDAQ=6 C8
 };
 const int kTrackNCh = 8;   // Tracking_1 strip channels: 1..kTrackNCh
 
@@ -236,12 +234,12 @@ std::string ScopeDirName(Long64_t eid) {
     return buf;
 }
 
-// Output directory name for EUDAQ_3..5 (renamed to Tracking planes).
-// EUDAQ=3 → Tracking_4,  EUDAQ=4 → Tracking_3,  EUDAQ=5 → Tracking_2
+// Output directory name for EUDAQ_2,3,4 (renamed to Tracking planes).
+// EUDAQ=2 → Tracking_5,  EUDAQ=3 → Tracking_2,  EUDAQ=4 → Tracking_4
 std::string TrackingDirName(Long64_t eid) {
-    if (eid == 3) return "Tracking_4";
-    if (eid == 4) return "Tracking_3";
-    if (eid == 5) return "Tracking_2";
+    if (eid == 2) return "Tracking_5";
+    if (eid == 3) return "Tracking_2";
+    if (eid == 4) return "Tracking_4";
     return ScopeDirName(eid);   // fallback (should not be reached)
 }
 
@@ -281,7 +279,7 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
                   Long64_t    evIdx,          // original sequential event index (for titles)
                   TFile*      fout,
                   double      thr_V,          // global threshold [V]
-                  double      thr_mcp_V,      // MCP-PMT threshold [V]  (EUDAQ=2 C1)
+                  double      thr_mcp_V,      // MCP-PMT threshold [V]  (EUDAQ=5 C8)
                   int         ped_n,          // pedestal window [samples]
                   Long64_t&   count_MCP,      // MCP-PMT crosses its threshold
                   Long64_t&   count_MCP_DUT,  // MCP-PMT AND DUT sensor both cross
@@ -290,14 +288,14 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
                   Long64_t&   graphs_written,
                   Long64_t&   saved_idx,      // sequential index of saved events (directory name)
                   // ── Coincidence monitors: MCP & DUT & tracking plane(s) ──────
-                  Long64_t&   cnt_MDT0,       // MCP & DUT & Trk0
                   Long64_t&   cnt_MDT1,       // MCP & DUT & Trk1
                   Long64_t&   cnt_MDT2,       // MCP & DUT & Trk2
-                  Long64_t&   cnt_MDT3,       // MCP & DUT & Trk3
-                  Long64_t&   cnt_MDT01,      // MCP & DUT & Trk0 & Trk1
+                  Long64_t&   cnt_MDT4,       // MCP & DUT & Trk4
+                  Long64_t&   cnt_MDT5,       // MCP & DUT & Trk5
                   Long64_t&   cnt_MDT12,      // MCP & DUT & Trk1 & Trk2
-                  Long64_t&   cnt_MDT23,      // MCP & DUT & Trk2 & Trk3
-                  Long64_t&   cnt_MDT0123)    // MCP & DUT & Trk0 & Trk1 & Trk2 & Trk3
+                  Long64_t&   cnt_MDT24,      // MCP & DUT & Trk2 & Trk4
+                  Long64_t&   cnt_MDT45,      // MCP & DUT & Trk4 & Trk5
+                  Long64_t&   cnt_MDT1245)    // MCP & DUT & Trk1 & Trk2 & Trk4 & Trk5
 {
     // ── Step 1: pedestal subtraction ─────────────────────────────────────────
     // proc[eudaq_id][ch] = ChProc
@@ -331,14 +329,14 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
         }
     }
 
-    // ── Step 2a: MCP-PMT  – EUDAQ=2 C1 below its own threshold ─────────────
+    // ── Step 2a: MCP-PMT  – EUDAQ=5 C8 below its own threshold ─────────────
     // cond_MCP is kept in function scope so it can be combined with S below.
     // Does NOT affect keep_event.
     bool cond_MCP = false;
     {
-        auto sit = proc.find(2LL);
+        auto sit = proc.find(5LL);
         if (sit != proc.end()) {
-            auto cit = sit->second.find(1);
+            auto cit = sit->second.find(8);
             if (cit != sit->second.end() &&
                 cit->second.min_volt_corr < thr_mcp_V)
                 cond_MCP = true;
@@ -349,16 +347,16 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
     // ── Step 2b: build S  – logical detector groups with any channel below thr_V
     //
     // Groups and their integer keys used in S:
-    //    0 = "DUT sensor"  (kDutChannels[1..kDutNCh]: EUDAQ=2 C2..C8)
-    //   10 = "Tracking_1"  (kTrackChannels[1..kTrackNCh]: EUDAQ=0/1 merged)
-    //    3 = "Tracking_4"  (proc[3] = EUDAQ=3, all channels)
-    //    4 = "Tracking_3"  (proc[4] = EUDAQ=4, all channels)
-    //    5 = "Tracking_2"  (proc[5] = EUDAQ=5, all channels)
-    // MCP-PMT (EUDAQ=2 C1) is excluded from S entirely.
+    //    0 = "DUT sensor"  (kDutChannels[1..kDutNCh]: EUDAQ=5 C1..C7)
+    //   10 = "Tracking_1"  (kTrackChannels[1..kTrackNCh]: EUDAQ=6)
+    //    2 = "Tracking_5"  (proc[2] = EUDAQ=2, all channels)
+    //    3 = "Tracking_2"  (proc[3] = EUDAQ=3, all channels)
+    //    4 = "Tracking_4"  (proc[4] = EUDAQ=4, all channels)
+    // MCP-PMT (EUDAQ=5 C8) is excluded from S entirely.
     // |S| is in [0..5], matching the five logical detector groups.
     std::set<int> S;
 
-    // DUT sensor: EUDAQ=2 C2..C8 (via kDutChannels)
+    // DUT sensor: EUDAQ=5 C1..C7 (via kDutChannels)
     for (int dut_ch = 1; dut_ch <= kDutNCh; ++dut_ch) {
         Long64_t src_eid = kDutChannels[dut_ch].eid;
         int      src_ch  = kDutChannels[dut_ch].src_ch;
@@ -372,7 +370,7 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
         }
     }
 
-    // Tracking_1: merged EUDAQ=0 + EUDAQ=1 (via kTrackChannels)
+    // Tracking_1: EUDAQ=6 (via kTrackChannels)
     for (int tr_ch = 1; tr_ch <= kTrackNCh; ++tr_ch) {
         Long64_t src_eid = kTrackChannels[tr_ch].eid;
         int      src_ch  = kTrackChannels[tr_ch].src_ch;
@@ -386,10 +384,10 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
         }
     }
 
-    // Tracking_1,2,4 (EUDAQ=3,4,5): any channel crossing threshold
+    // Tracking_2,4,5 (EUDAQ=3,4,2): any channel crossing threshold
     for (auto sit = proc.begin(); sit != proc.end(); ++sit) {
         Long64_t eid = sit->first;
-        if (eid < 3) continue;   // EUDAQ=0,1 → Tracking_1; EUDAQ=2 → DUT+MCP
+        if (eid == 5 || eid == 6) continue;   // EUDAQ=5 → DUT+MCP; EUDAQ=6 → Tracking_1
         for (auto cit = sit->second.begin(); cit != sit->second.end(); ++cit) {
             if (cit->second.min_volt_corr < thr_V) {
                 S.insert((int)eid);
@@ -403,28 +401,28 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
 
     // Convenience flags for coincidence evaluation.
     const bool has_DUT  = (S.count(0)  > 0);
-    const bool has_Trk0 = (S.count(10) > 0);
-    const bool has_Trk1 = (S.count(5)  > 0);
-    const bool has_Trk2 = (S.count(4)  > 0);
-    const bool has_Trk3 = (S.count(3)  > 0);
+    const bool has_Trk1 = (S.count(10) > 0);  // Tracking_1 (EUDAQ=6)
+    const bool has_Trk2 = (S.count(3)  > 0);  // Tracking_2 (EUDAQ=3)
+    const bool has_Trk4 = (S.count(4)  > 0);  // Tracking_4 (EUDAQ=4)
+    const bool has_Trk5 = (S.count(2)  > 0);  // Tracking_5 (EUDAQ=2)
 
     // Basic MCP+DUT coincidence.
     if (cond_MCP && has_DUT) ++count_MCP_DUT;
 
     // MCP & DUT & single tracking plane.
-    if (cond_MCP && has_DUT && has_Trk0) ++cnt_MDT0;
     if (cond_MCP && has_DUT && has_Trk1) ++cnt_MDT1;
     if (cond_MCP && has_DUT && has_Trk2) ++cnt_MDT2;
-    if (cond_MCP && has_DUT && has_Trk3) ++cnt_MDT3;
+    if (cond_MCP && has_DUT && has_Trk4) ++cnt_MDT4;
+    if (cond_MCP && has_DUT && has_Trk5) ++cnt_MDT5;
 
     // MCP & DUT & adjacent tracking plane pairs.
-    if (cond_MCP && has_DUT && has_Trk0 && has_Trk1) ++cnt_MDT01;
     if (cond_MCP && has_DUT && has_Trk1 && has_Trk2) ++cnt_MDT12;
-    if (cond_MCP && has_DUT && has_Trk2 && has_Trk3) ++cnt_MDT23;
+    if (cond_MCP && has_DUT && has_Trk2 && has_Trk4) ++cnt_MDT24;
+    if (cond_MCP && has_DUT && has_Trk4 && has_Trk5) ++cnt_MDT45;
 
     // MCP & DUT & all four tracking planes.
-    if (cond_MCP && has_DUT && has_Trk0 && has_Trk1 && has_Trk2 && has_Trk3)
-        ++cnt_MDT0123;
+    if (cond_MCP && has_DUT && has_Trk1 && has_Trk2 && has_Trk4 && has_Trk5)
+        ++cnt_MDT1245;
 
     count_k[(int)S.size()]++;
 
@@ -450,7 +448,7 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
         return &cit->second;
     };
 
-    // ── 3a: "DUT sensor"  (EUDAQ=2 C2..C8 → strip1..strip7) ─────────────────
+    // ── 3a: "DUT sensor"  (EUDAQ=5 C1..C7 → strip1..strip7) ─────────────────
     evdir->cd();
     TDirectory* dutdir = evdir->mkdir("DUT sensor");
     if (dutdir) {
@@ -483,16 +481,16 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
         }
     }
 
-    // ── 3b: "MCP-PMT"  (EUDAQ=2 C1) ─────────────────────────────────────────
+    // ── 3b: "MCP-PMT"  (EUDAQ=5 C8) ─────────────────────────────────────────
     evdir->cd();
     TDirectory* mcpdir = evdir->mkdir("MCP-PMT");
     if (mcpdir) {
-        const ChProc* cp = getProc(2LL, 1);
+        const ChProc* cp = getProc(5LL, 8);
         if (cp && (int)cp->volt_corr.size() > 0) {
             int n = (int)cp->volt_corr.size();
             char gtitle[256];
             snprintf(gtitle, sizeof(gtitle),
-                     "event=%lld MCP-PMT (src EUDAQ=2 C1) "
+                     "event=%lld MCP-PMT (src EUDAQ=5 C8) "
                      "thr_mcp=%.1fmV ped=%dpts",
                      (long long)evIdx, thr_mcp_V * 1e3, ped_n);
 
@@ -506,7 +504,7 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
         }
     }
 
-    // ── 3c: "Tracking_1"  (EUDAQ=0 C1..C4 + EUDAQ=1 C1..C4 → strip1..strip8)
+    // ── 3c: "Tracking_1"  (EUDAQ=6 C1..C8 → strip1..strip8) ────────────────
     evdir->cd();
     TDirectory* trkdir = evdir->mkdir("Tracking_1");
     if (trkdir) {
@@ -539,10 +537,10 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
         }
     }
 
-    // ── 3d: Tracking_1,2,4  (EUDAQ=3,4,5 renamed; 8 channels each) ──────────
+    // ── 3d: Tracking_2,4,5  (EUDAQ=2,3,4 renamed; 8 channels each) ──────────
     for (auto sit = proc.begin(); sit != proc.end(); ++sit) {
         Long64_t eid = sit->first;
-        if (eid < 3) continue;   // EUDAQ=0,1 → Tracking_1; EUDAQ=2 → DUT+MCP
+        if (eid == 5 || eid == 6) continue;   // EUDAQ=5 → DUT+MCP; EUDAQ=6 → Tracking_1
 
         const std::string dirName = TrackingDirName(eid);
         evdir->cd();
@@ -719,19 +717,19 @@ void make_event_waveforms(const char* input_path,
     Long64_t graphs_total  = 0;
     Long64_t n_events      = 0;  // physics events processed (unique EventN groups)
     // count_k[k] = events where exactly k logical detector groups crossed thr_V
-    // Groups: {DUT sensor, Tracking_1, Tracking_2, Tracking_3, Tracking_4} → k in [0..5]
+    // Groups: {DUT sensor, Tracking_1, Tracking_2, Tracking_4, Tracking_5} → k in [0..5]
     std::map<int, Long64_t> count_k;
     for (int k = 0; k <= 5; ++k) count_k[k] = 0;
 
     // ── Coincidence monitors ──────────────────────────────────────────────────
-    Long64_t cnt_MDT0    = 0;  // MCP & DUT & Trk0
     Long64_t cnt_MDT1    = 0;  // MCP & DUT & Trk1
     Long64_t cnt_MDT2    = 0;  // MCP & DUT & Trk2
-    Long64_t cnt_MDT3    = 0;  // MCP & DUT & Trk3
-    Long64_t cnt_MDT01   = 0;  // MCP & DUT & Trk0 & Trk1
+    Long64_t cnt_MDT4    = 0;  // MCP & DUT & Trk4
+    Long64_t cnt_MDT5    = 0;  // MCP & DUT & Trk5
     Long64_t cnt_MDT12   = 0;  // MCP & DUT & Trk1 & Trk2
-    Long64_t cnt_MDT23   = 0;  // MCP & DUT & Trk2 & Trk3
-    Long64_t cnt_MDT0123 = 0;  // MCP & DUT & Trk0 & Trk1 & Trk2 & Trk3
+    Long64_t cnt_MDT24   = 0;  // MCP & DUT & Trk2 & Trk4
+    Long64_t cnt_MDT45   = 0;  // MCP & DUT & Trk4 & Trk5
+    Long64_t cnt_MDT1245 = 0;  // MCP & DUT & Trk1 & Trk2 & Trk4 & Trk5
 
     // ── Event loop with EventN-based grouping ─────────────────────────────────
     // Entries with the same EventN are collected into one group and processed
@@ -753,8 +751,8 @@ void make_event_waveforms(const char* input_path,
                      thr_V, thr_mcp_V, ped_n,
                      count_MCP, count_MCP_DUT, count_ANY, count_k, graphs_total,
                      saved_idx,
-                     cnt_MDT0, cnt_MDT1, cnt_MDT2, cnt_MDT3,
-                     cnt_MDT01, cnt_MDT12, cnt_MDT23, cnt_MDT0123);
+                     cnt_MDT1, cnt_MDT2, cnt_MDT4, cnt_MDT5,
+                     cnt_MDT12, cnt_MDT24, cnt_MDT45, cnt_MDT1245);
         ++n_events;
         if (n_events % 500 == 0) fout->Flush();
         group.clear();
@@ -817,12 +815,12 @@ void make_event_waveforms(const char* input_path,
         {
             std::ostringstream o;
             o << std::fixed << std::setprecision(1) << thr_mV << " mV";
-            lines.push_back(KvLine("Global thr (DUT + Tracking_1,2,3,4)", o.str(), LW));
+            lines.push_back(KvLine("Global thr (DUT + Tracking_1,2,4,5)", o.str(), LW));
         }
         {
             std::ostringstream o;
             o << std::fixed << std::setprecision(1) << thr_mcp_mV << " mV";
-            lines.push_back(KvLine("MCP-PMT thr (EUDAQ=2 C1)", o.str(), LW));
+            lines.push_back(KvLine("MCP-PMT thr (EUDAQ=5 C8)", o.str(), LW));
         }
         {
             std::ostringstream o;
@@ -846,14 +844,14 @@ void make_event_waveforms(const char* input_path,
 
         // ── Coincidence monitors ──────────────────────────────────────────────
         lines.push_back("Coincidence monitors  (MCP & DUT & ...)");
-        lines.push_back(KvLine("  + Trk1",                   FmtCP(cnt_MDT0,    total), LW));
-        lines.push_back(KvLine("  + Trk2",                   FmtCP(cnt_MDT1,    total), LW));
-        lines.push_back(KvLine("  + Trk3",                   FmtCP(cnt_MDT2,    total), LW));
-        lines.push_back(KvLine("  + Trk4",                   FmtCP(cnt_MDT3,    total), LW));
-        lines.push_back(KvLine("  + Trk1 & Trk2",            FmtCP(cnt_MDT01,   total), LW));
-        lines.push_back(KvLine("  + Trk2 & Trk3",            FmtCP(cnt_MDT12,   total), LW));
-        lines.push_back(KvLine("  + Trk3 & Trk4",            FmtCP(cnt_MDT23,   total), LW));
-        lines.push_back(KvLine("  + Trk1 & Trk2 & Trk3 & Trk4", FmtCP(cnt_MDT0123, total), LW));
+        lines.push_back(KvLine("  + Trk1",                        FmtCP(cnt_MDT1,    total), LW));
+        lines.push_back(KvLine("  + Trk2",                        FmtCP(cnt_MDT2,    total), LW));
+        lines.push_back(KvLine("  + Trk4",                        FmtCP(cnt_MDT4,    total), LW));
+        lines.push_back(KvLine("  + Trk5",                        FmtCP(cnt_MDT5,    total), LW));
+        lines.push_back(KvLine("  + Trk1 & Trk2",                 FmtCP(cnt_MDT12,   total), LW));
+        lines.push_back(KvLine("  + Trk2 & Trk4",                 FmtCP(cnt_MDT24,   total), LW));
+        lines.push_back(KvLine("  + Trk4 & Trk5",                 FmtCP(cnt_MDT45,   total), LW));
+        lines.push_back(KvLine("  + Trk1 & Trk2 & Trk4 & Trk5",  FmtCP(cnt_MDT1245, total), LW));
 
 
         printf("\n");
