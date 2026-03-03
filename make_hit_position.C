@@ -42,8 +42,8 @@
  *   Filled only when both groups have a valid hit in the same event.
  *
  * 1D position-difference histograms (directory "Differences/"):
- *   DUT sensor − Tracking_1,  DUT sensor − Tracking_4,
- *   Tracking_1 − Tracking_4,  Tracking_2 − Tracking_5
+ *   Tracking_1 − Tracking_5,  Tracking_1 − DUT sensor,
+ *   DUT sensor − Tracking_5,  Tracking_2 − Tracking_4
  *   Each pair: one TH1D per method tag → 4 × 6 = 24 histograms total.
  *
  * 1D strip-multiplicity histograms (per detector-group directory):
@@ -253,10 +253,10 @@ void make_hit_position(
 
     struct DiffDef { const char* label; const char* agrp; const char* bgrp; };
     const DiffDef kDiff[] = {
-        { "DUT_minus_Trk1",  "DUT sensor", "Tracking_1" },
-        { "DUT_minus_Trk4",  "DUT sensor", "Tracking_4" },
-        { "Trk1_minus_Trk4", "Tracking_1", "Tracking_4" },
-        { "Trk2_minus_Trk5", "Tracking_2", "Tracking_5" },
+        { "Trk1_minus_Trk5", "Tracking_1", "Tracking_5" },
+        { "Trk1_minus_DUT",  "Tracking_1", "DUT sensor" },
+        { "DUT_minus_Trk5",  "DUT sensor", "Tracking_5" },
+        { "Trk2_minus_Trk4", "Tracking_2", "Tracking_4" },
     };
     const int kNDiff = 4;
 
