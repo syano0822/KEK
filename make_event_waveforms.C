@@ -41,6 +41,8 @@
  *  thr_mV       : signal threshold [mV], negative pulse  (default -10.0)
  *  thr_mcp_mV   : MCP-PMT threshold [mV] (EUDAQ_ID=3 C8) (default -200.0)
  *  ped_n        : samples used for pedestal estimate      (default 20)
+ *  skip_no_hit  : true  = skip events where no detector crosses thr (default)
+ *                 false = store all events regardless of hit condition
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -236,6 +238,7 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
                   double   thr_V,
                   double   thr_mcp_V,
                   int      ped_n,
+                  bool     skip_no_hit,
                   Stats&   st)
 {
     // ── Step 1: pedestal subtraction ─────────────────────────────────────────
@@ -341,7 +344,7 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
     if (h2 && hD && h4) ++st.count_Trk2_DUT_Trk4;
     if (cond_MCP && hD && cond_allTrk) ++st.count_MCP_DUT_allTrk;
 
-    if (!keep_event) return;
+    if (!keep_event && skip_no_hit) return;
 
     // ── Step 3: write TGraphs ────────────────────────────────────────────────
     fout->cd();
@@ -427,7 +430,8 @@ void make_event_waveforms(const char* input_path,
                           Long64_t    max_entries = -1,
                           Double_t    thr_mV      = -10.0,
                           Double_t    thr_mcp_mV  = -200.0,
-                          Int_t       ped_n       = 20)
+                          Int_t       ped_n       = 20,
+                          Bool_t      skip_no_hit = true)
 {
     const double thr_V     = thr_mV     * 1e-3;
     const double thr_mcp_V = thr_mcp_mV * 1e-3;
@@ -436,6 +440,7 @@ void make_event_waveforms(const char* input_path,
     printf("[INFO]   Global threshold      : %.1f mV\n",    thr_mV);
     printf("[INFO]   MCP-PMT threshold     : %.1f mV\n",    thr_mcp_mV);
     printf("[INFO]   Pedestal window       : %d samples\n", (int)ped_n);
+    printf("[INFO]   Skip no-hit events    : %s\n",         skip_no_hit ? "yes" : "no");
 
     TFile* fin = TFile::Open(input_path, "READ");
     if (!fin || fin->IsZombie()) {
@@ -484,7 +489,7 @@ void make_event_waveforms(const char* input_path,
 
     auto flush_group = [&]() {
         if (group.empty()) return;
-        ProcessEvent(group, evIdx, fout, thr_V, thr_mcp_V, ped_n, st);
+        ProcessEvent(group, evIdx, fout, thr_V, thr_mcp_V, ped_n, skip_no_hit, st);
         ++st.n_events;
         if (st.n_events % 500 == 0) fout->Flush();
         group.clear();
