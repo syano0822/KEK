@@ -9,13 +9,13 @@
  *   nC#_volt/I,  C#_volt[nC#_volt]/D    (# = 1..8)
  *   nC#_time/I,  C#_time[nC#_time]/D
  *
- * EUDAQ_ID → detector mapping (physical EUDAQ2..6 stored as IDs 0..4):
- *   EUDAQ_ID=0  (phys. EUDAQ2) → Tracking_5   C1..C8 → strip1..strip8
- *   EUDAQ_ID=1  (phys. EUDAQ3) → Tracking_2   C1..C8 → strip1..strip8
- *   EUDAQ_ID=2  (phys. EUDAQ4) → Tracking_4   C1..C8 → strip1..strip8
- *   EUDAQ_ID=3  (phys. EUDAQ5) → DUT sensor   C1..C7 → strip1..strip7
- *                               → MCP-PMT     C8     → wf
- *   EUDAQ_ID=4  (phys. EUDAQ6) → Tracking_1   C1..C8 → strip1..strip8
+ * EUDAQ_ID → detector mapping:
+ *   EUDAQ_ID=0 → Tracking_5   C1..C8 → strip1..strip8
+ *   EUDAQ_ID=1 → Tracking_2   C1..C8 → strip1..strip8
+ *   EUDAQ_ID=2 → Tracking_4   C1..C8 → strip1..strip8
+ *   EUDAQ_ID=3 → DUT sensor   C1..C7 → strip1..strip7
+ *              → MCP-PMT      C8     → wf
+ *   EUDAQ_ID=4 → Tracking_1   C1..C8 → strip1..strip8
  *
  * Output structure:
  *   /event_000000/
@@ -76,10 +76,10 @@ const Long64_t kDUT_ID = 3LL;
 /// Tracking plane definitions: EUDAQ_ID → output directory name.
 struct TrkDef { Long64_t eid; const char* name; };
 const TrkDef kTracking[] = {
-    {4LL, "Tracking_1"},   // phys. EUDAQ6
-    {1LL, "Tracking_2"},   // phys. EUDAQ3
-    {2LL, "Tracking_4"},   // phys. EUDAQ4
-    {0LL, "Tracking_5"},   // phys. EUDAQ2
+    {4LL, "Tracking_1"},
+    {1LL, "Tracking_2"},
+    {2LL, "Tracking_4"},
+    {0LL, "Tracking_5"},
 };
 const int kNTracking = 4;
 
