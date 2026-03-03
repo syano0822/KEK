@@ -2,14 +2,25 @@
  * make_hit_position.C
  *
  * Reads per-event TGraph waveforms stored by make_event_waveforms.C and
- * computes the amplitude-weighted hit position for each detector group.
+ * computes the amplitude-weighted hit position for each strip detector group.
+ *
+ * Input file structure (from make_event_waveforms.C):
+ *   /event_000000/
+ *     DUT sensor/   strip1..strip7   (7 strips, voltage in V pedestal-subtracted)
+ *     MCP-PMT/      wf               (single channel — skipped for position)
+ *     Tracking_1/   strip1..strip8
+ *     Tracking_2/   strip1..strip8
+ *     Tracking_4/   strip1..strip8
+ *     Tracking_5/   strip1..strip8
+ *   /event_000001/ ...
  *
  * Hit-position estimators:
- *   Linear  :  pos = Σ(w_i  · x_i) / Σ(w_i)     where w_i = |amplitude_i|
+ *   Linear  :  pos = Σ(w_i  · x_i) / Σ(w_i)     where w_i = amplitude_i [mV]
  *   Squared :  pos = Σ(w_i² · x_i) / Σ(w_i²)
  *
- * Strip positions:   x_i = x_first + (i−1) · pitch   [i = 1-based channel index]
- *   Default: ch1 = 14.5 mm, pitch = 0.5 mm  →  ch8 = 18.0 mm
+ * Strip positions:   x_i = x_first + (i−1) · pitch   [i = 1-based strip index]
+ *   Default: strip1 = 14.5 mm, pitch = 0.5 mm
+ *     → DUT strip7 = 17.5 mm,  Tracking strip8 = 18.0 mm
  *
  * Three channel-selection methods are studied in parallel:
  *   top2 : 2 strips with highest amplitude  (from those > pos_thr_mV)
@@ -21,48 +32,48 @@
  *   h_pos_top3_lin,  h_pos_top3_sq
  *   h_pos_thr_lin,   h_pos_thr_sq
  *
- * 2D correlation histograms (directory "Correlations/"), all 15 pairs:
- *   DUT sensor × MCP-PMT, DUT sensor × Tracking_0..3,
- *   MCP-PMT    × Tracking_0..3,
- *   Tracking_0 × Tracking_1..3,
- *   Tracking_1 × Tracking_2, Tracking_1 × Tracking_3,
- *   Tracking_2 × Tracking_3
- *   Each pair: one TH2D per method tag → 15 × 6 = 90 histograms total.
+ * 2D correlation histograms (directory "Correlations/"), 10 pairs
+ * (strip detectors only — MCP-PMT excluded):
+ *   DUT sensor × Tracking_1,2,4,5
+ *   Tracking_1 × Tracking_2,4,5
+ *   Tracking_2 × Tracking_4,5
+ *   Tracking_4 × Tracking_5
+ *   Each pair: one TH2D per method tag → 10 × 6 = 60 histograms total.
  *   Filled only when both groups have a valid hit in the same event.
  *
  * 1D position-difference histograms (directory "Differences/"):
- *   DUT sensor − Tracking_0,  DUT sensor − Tracking_3,
- *   Tracking_0 − Tracking_3,  Tracking_1 − Tracking_2
+ *   DUT sensor − Tracking_1,  DUT sensor − Tracking_4,
+ *   Tracking_1 − Tracking_4,  Tracking_2 − Tracking_5
  *   Each pair: one TH1D per method tag → 4 × 6 = 24 histograms total.
  *
  * 1D strip-multiplicity histograms (per detector-group directory):
  *   h_nstrips_<group>  : number of strips with amplitude > pos_thr_mV
  *   Range: 0..8 (9 bins, −0.5 to 8.5); filled for every event including zero.
  *
- * Channel name → index mapping (trailing digits, no digits → 1):
- *   "strip3" → 3,   "wf_C5" → 5,   "wf" → 1
+ * Channel name → strip index:  "strip3" → 3,  "wf" → 1
  *
  * ── Usage ───────────────────────────────────────────────────────────────────
  *  Interpreted:
- *    root 'make_hit_position.C("waveforms.root")'
+ *    root 'make_hit_position.C("waveforms.root","pos.root")'
  *    root 'make_hit_position.C("waveforms.root","pos.root",8.,14.5,0.5,200,13.,19.)'
  *
  *  ACLiC compiled (recommended for large files):
- *    root 'make_hit_position.C+("waveforms.root")'
+ *    root 'make_hit_position.C+("waveforms.root","pos.root")'
  *
  * ── Parameters ──────────────────────────────────────────────────────────────
  *  input_path  : waveform ROOT file (output of make_event_waveforms.C)
- *  output_path : output ROOT file                         (default "hit_position.root")
- *  pos_thr_mV  : min amplitude to include a channel [mV]  (default   8.0)
- *  x_first_mm  : position of channel 1 [mm]               (default  14.5)
+ *  output_path : output ROOT file
+ *  pos_thr_mV  : min amplitude to include a strip [mV]    (default   8.0)
+ *  x_first_mm  : position of strip 1 [mm]                 (default  14.5)
  *  x_pitch_mm  : strip pitch [mm]                         (default   0.5)
- *  nbins       : histogram bins (1D and each 2D axis)      (default 200)
+ *  nbins       : histogram bins (1D and each 2D axis)      (default 600)
  *  pos_min_mm  : histogram x-axis minimum [mm]            (default  13.0)
  *  pos_max_mm  : histogram x-axis maximum [mm]            (default  19.0)
  *  amp_min_mV  : amplitude axis minimum for pos-vs-amp [mV] (default   0.0)
  *  amp_max_mV  : amplitude axis maximum for pos-vs-amp [mV] (default 300.0)
- *  skip_edge   : if true, skip events where ch1 or ch8 is the leading strip
- *                (edge-strip veto, applied per group)      (default false)
+ *  skip_edge   : if true, skip events where the leading strip is at the edge
+ *                (strip1 or strip7 for DUT, strip1 or strip8 for Tracking)
+ *                (default false)
  *  diff_min_mm : position-difference histogram minimum [mm](default  -6.0)
  *  diff_max_mm : position-difference histogram maximum [mm](default  +6.0)
  * ────────────────────────────────────────────────────────────────────────────
@@ -93,8 +104,8 @@ static const char* kTags[]  = {
 };
 static const int kNTags = 6;
 
-// ── Extract 1-based channel index from a TGraph name ─────────────────────────
-// "strip3" → 3,  "wf_C5" → 5,  "wf" → 1 (no trailing digits)
+// ── Extract 1-based strip index from a TGraph name ───────────────────────────
+// "strip3" → 3,  "wf" → 1 (no trailing digits)
 static int ChIndex(const std::string& name)
 {
     int i = (int)name.size() - 1;
@@ -189,35 +200,29 @@ void make_hit_position(
     };
 
     // ── 2D histogram registry ─────────────────────────────────────────────────
-    // Two correlations, six tags each → 12 TH2D total.
-    // key = "corrLabel/tag"  e.g. "EUDAQ5_vs_EUDAQ2/top2_lin"
+    // Strip detectors only (MCP-PMT has no strip position → excluded).
+    // 5 strip groups → C(5,2) = 10 pairs × 6 tags = 60 TH2D total.
+    // key = "corrLabel/tag"
     std::map<std::string, TH2D*> h2;
 
-    // corrLabel, xGroup, yGroup  — all C(6,2) = 15 pairs
     struct CorrDef { const char* label; const char* xgrp; const char* ygrp; };
     const CorrDef kCorr[] = {
-        // DUT sensor vs others
-        { "DUT_vs_MCP",    "DUT sensor",  "MCP-PMT"    },
-        { "DUT_vs_Trk0",   "DUT sensor",  "Tracking_0" },
+        // DUT sensor vs Tracking planes
         { "DUT_vs_Trk1",   "DUT sensor",  "Tracking_1" },
         { "DUT_vs_Trk2",   "DUT sensor",  "Tracking_2" },
-        { "DUT_vs_Trk3",   "DUT sensor",  "Tracking_3" },
-        // MCP-PMT vs Tracking planes
-        { "MCP_vs_Trk0",   "MCP-PMT",     "Tracking_0" },
-        { "MCP_vs_Trk1",   "MCP-PMT",     "Tracking_1" },
-        { "MCP_vs_Trk2",   "MCP-PMT",     "Tracking_2" },
-        { "MCP_vs_Trk3",   "MCP-PMT",     "Tracking_3" },
-        // Tracking_0 vs Tracking planes
-        { "Trk0_vs_Trk1",  "Tracking_0",  "Tracking_1" },
-        { "Trk0_vs_Trk2",  "Tracking_0",  "Tracking_2" },
-        { "Trk0_vs_Trk3",  "Tracking_0",  "Tracking_3" },
-        // Tracking_1 vs Tracking_2,3
+        { "DUT_vs_Trk4",   "DUT sensor",  "Tracking_4" },
+        { "DUT_vs_Trk5",   "DUT sensor",  "Tracking_5" },
+        // Tracking_1 vs Tracking planes
         { "Trk1_vs_Trk2",  "Tracking_1",  "Tracking_2" },
-        { "Trk1_vs_Trk3",  "Tracking_1",  "Tracking_3" },
-        // Tracking_2 vs Tracking_3
-        { "Trk2_vs_Trk3",  "Tracking_2",  "Tracking_3" },
+        { "Trk1_vs_Trk4",  "Tracking_1",  "Tracking_4" },
+        { "Trk1_vs_Trk5",  "Tracking_1",  "Tracking_5" },
+        // Tracking_2 vs Tracking_4,5
+        { "Trk2_vs_Trk4",  "Tracking_2",  "Tracking_4" },
+        { "Trk2_vs_Trk5",  "Tracking_2",  "Tracking_5" },
+        // Tracking_4 vs Tracking_5
+        { "Trk4_vs_Trk5",  "Tracking_4",  "Tracking_5" },
     };
-    const int kNCorr = 15;
+    const int kNCorr = 10;
 
     auto getH2 = [&](const std::string& label,
                      const std::string& tag,
@@ -248,10 +253,10 @@ void make_hit_position(
 
     struct DiffDef { const char* label; const char* agrp; const char* bgrp; };
     const DiffDef kDiff[] = {
-        { "DUT_minus_Trk0",  "DUT sensor", "Tracking_0" },
-        { "DUT_minus_Trk3",  "DUT sensor", "Tracking_3" },
-        { "Trk0_minus_Trk3", "Tracking_0", "Tracking_3" },
-        { "Trk1_minus_Trk2", "Tracking_1", "Tracking_2" },
+        { "DUT_minus_Trk1",  "DUT sensor", "Tracking_1" },
+        { "DUT_minus_Trk4",  "DUT sensor", "Tracking_4" },
+        { "Trk1_minus_Trk4", "Tracking_1", "Tracking_4" },
+        { "Trk2_minus_Trk5", "Tracking_2", "Tracking_5" },
     };
     const int kNDiff = 4;
 
@@ -277,7 +282,8 @@ void make_hit_position(
 
     // ── Strip-multiplicity histogram registry ─────────────────────────────────
     // key = group name
-    // Bins: 0..8 strips above threshold (9 integer bins, −0.5 to 8.5)
+    // DUT sensor: 0..7 strips (8 bins, −0.5 to 7.5)
+    // Tracking planes: 0..8 strips (9 bins, −0.5 to 8.5)
     std::map<std::string, TH1D*> h_nstrips;
 
     auto getNStripsH = [&](const std::string& grp) -> TH1D* {
@@ -287,9 +293,10 @@ void make_hit_position(
         std::string hname = "h_nstrips_" + grp;
         for (char& c : hname) if (c == ' ' || c == '-') c = '_';
 
+        int nmax = (grp == "DUT sensor") ? 7 : 8;   // DUT has 7 strips, Tracking 8
         std::string title = grp + " strips above threshold;"
                             "N strips above threshold;Entries";
-        TH1D* h = new TH1D(hname.c_str(), title.c_str(), 9, -0.5, 8.5);
+        TH1D* h = new TH1D(hname.c_str(), title.c_str(), nmax + 1, -0.5, nmax + 0.5);
         h->SetDirectory(nullptr);
         h_nstrips[grp] = h;
         return h;
@@ -360,11 +367,15 @@ void make_hit_position(
         TKey* gk;
         while ((gk = (TKey*)itg())) {
             if (std::string(gk->GetClassName()) != "TDirectoryFile") continue;
-	    
+
             std::string grpname = gk->GetName();
+
+            // MCP-PMT has only one channel ("wf") — no strip position to compute.
+            if (grpname == "MCP-PMT") continue;
+
             TDirectory* grpdir  = evdir->GetDirectory(grpname.c_str());
             if (!grpdir) continue;
-	    
+
             // Collect (position [mm], amplitude [mV]) for channels above threshold.
             std::vector<std::pair<double,double>> pw_all;
 
@@ -403,15 +414,14 @@ void make_hit_position(
                       });
 
             // Edge-strip veto: skip this group/event when the leading strip
-            // (highest amplitude) is ch1 or ch8.
+            // (highest amplitude) is at the edge.
+            // DUT sensor: edges are strip1 and strip7 (7 strips total).
+            // Tracking planes: edges are strip1 and strip8 (8 strips total).
             if (skip_edge) {
                 int leading_idx = (int)std::round(
                     (pw_all[0].first - x_first_mm) / x_pitch_mm) + 1;
-                if (grpname == "DUT sensor") {
-		  if (leading_idx == 1 || leading_idx == 7) continue;
-		} else {
-		  if (leading_idx == 1 || leading_idx == 8) continue;
-		}		
+                int edge_max = (grpname == "DUT sensor") ? 7 : 8;
+                if (leading_idx == 1 || leading_idx == edge_max) continue;
             }
 
             // Leading-strip amplitude (highest-amplitude strip after sorting).
