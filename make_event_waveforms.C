@@ -75,6 +75,10 @@ const Int_t kNCh = 8;
 /// EUDAQ_ID of the DUT scope (contains DUT strips C1..C7 and MCP-PMT C8).
 const Long64_t kDUT_ID = 3LL;
 
+/// EUDAQ_ID of the MCPPMT scope 
+const Long64_t kMCP_ID = 0LL;
+
+
 /// Tracking plane definitions: EUDAQ_ID → output directory name.
 struct TrkDef { Long64_t eid; const char* name; };
 const TrkDef kTracking[] = {
@@ -273,7 +277,7 @@ void ProcessEvent(const std::vector<ScopeRaw>& scopes,
     // ── Step 2a: MCP-PMT — EUDAQ_ID=3, C8 ───────────────────────────────────
     bool cond_MCP = false;
     {
-        auto sit = proc.find(kDUT_ID);
+        auto sit = proc.find(kMCP_ID);
         if (sit != proc.end()) {
             auto cit = sit->second.find(8);
             if (cit != sit->second.end() &&
